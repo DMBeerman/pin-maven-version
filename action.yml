@@ -1,0 +1,32 @@
+name: Pin Maven version
+description: Download Apache Maven and add the requested version to PATH.
+
+inputs:
+  version:
+    description: Apache Maven version to install.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Apache Maven
+      shell: bash
+      env:
+        MAVEN_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+
+        if [[ ! "$MAVEN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9]+([.-][A-Za-z0-9]+)*)?$ ]]; then
+          echo "::error::Invalid Apache Maven version."
+          exit 1
+        fi
+
+        installation_dir="$(mktemp -d "${RUNNER_TEMP}/maven.XXXXXX")"
+        archive="${installation_dir}/maven.tar.gz"
+        curl --fail --location --silent --show-error --retry 3 \
+          "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/${MAVEN_VERSION}/apache-maven-${MAVEN_VERSION}-bin.tar.gz" \
+          --output "$archive"
+        tar -xzf "$archive" --strip-components=1 -C "$installation_dir"
+        rm "$archive"
+        test -x "${installation_dir}/bin/mvn"
+        printf '%s\n' "${installation_dir}/bin" >> "$GITHUB_PATH"
